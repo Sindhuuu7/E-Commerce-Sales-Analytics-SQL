@@ -827,3 +827,698 @@ JOIN products p
 GROUP BY c.customer_id, c.customer_name
 ORDER BY total_revenue DESC
 FETCH FIRST 1 ROW ONLY;
+
+-- ============================================
+-- ADVANCED SQL: CTEs & WINDOW FUNCTIONS
+-- Q76 - Q100
+-- ============================================
+
+-- Q76. Find customers whose total revenue is greater than 50000
+WITH customer_revenue AS (
+    SELECT c.customer_id,
+           SUM(p.price * oi.quantity) AS total_revenue
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+    JOIN order_items oi
+        ON o.order_id = oi.order_id
+    JOIN products p
+        ON oi.product_id = p.product_id
+    GROUP BY c.customer_id
+)
+SELECT customer_id,
+       total_revenue
+FROM customer_revenue
+WHERE total_revenue > 50000;
+
+
+-- Q77. Display customer names along with revenue greater than 50000
+WITH customer_revenue AS (
+    SELECT c.customer_id,
+           c.customer_name,
+           SUM(p.price * oi.quantity) AS total_revenue
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+    JOIN order_items oi
+        ON o.order_id = oi.order_id
+    JOIN products p
+        ON oi.product_id = p.product_id
+    GROUP BY c.customer_id, c.customer_name
+)
+SELECT customer_id,
+       customer_name,
+       total_revenue
+FROM customer_revenue
+WHERE total_revenue > 50000;
+
+
+-- Q78. Find customers whose revenue is above average customer revenue
+WITH customer_revenue AS (
+    SELECT c.customer_id,
+           SUM(p.price * oi.quantity) AS total_revenue
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+    JOIN order_items oi
+        ON o.order_id = oi.order_id
+    JOIN products p
+        ON oi.product_id = p.product_id
+    GROUP BY c.customer_id
+),
+average_revenue AS (
+    SELECT AVG(total_revenue) AS avg_revenue
+    FROM customer_revenue
+)
+SELECT cr.customer_id,
+       cr.total_revenue
+FROM customer_revenue cr
+CROSS JOIN average_revenue ar
+WHERE cr.total_revenue > ar.avg_revenue;
+
+
+-- Q79. Find the customer with the highest revenue in each category
+WITH category_customer_revenue AS (
+    SELECT ca.category_name,
+           c.customer_id,
+           SUM(p.price * oi.quantity) AS revenue
+    FROM categories ca
+    JOIN products p
+        ON ca.category_id = p.category_id
+    JOIN order_items oi
+        ON p.product_id = oi.product_id
+    JOIN orders o
+        ON oi.order_id = o.order_id
+    JOIN customers c
+        ON o.customer_id = c.customer_id
+    GROUP BY ca.category_id,
+             ca.category_name,
+             c.customer_id
+),
+ranked AS (
+    SELECT category_name,
+           customer_id,
+           revenue,
+           RANK() OVER (
+               PARTITION BY category_name
+               ORDER BY revenue DESC
+           ) AS rnk
+    FROM category_customer_revenue
+)
+SELECT category_name,
+       customer_id,
+       revenue
+FROM ranked
+WHERE rnk = 1;
+
+
+-- Q80. Find the top 3 customers by total revenue
+WITH customer_revenue AS (
+    SELECT c.customer_id,
+           c.customer_name,
+           SUM(p.price * oi.quantity) AS revenue
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+    JOIN order_items oi
+        ON o.order_id = oi.order_id
+    JOIN products p
+        ON oi.product_id = p.product_id
+    GROUP BY c.customer_id, c.customer_name
+),
+ranked AS (
+    SELECT customer_id,
+           customer_name,
+           revenue,
+           RANK() OVER (
+               ORDER BY revenue DESC
+           ) AS rnk
+    FROM customer_revenue
+)
+SELECT customer_id,
+       customer_name,
+       revenue AS total_revenue,
+       rnk
+FROM ranked
+WHERE rnk <= 3;
+
+
+-- Q81. Find the top 3 customers using ROW_NUMBER()
+WITH customer_revenue AS (
+    SELECT c.customer_id,
+           c.customer_name,
+           SUM(p.price * oi.quantity) AS revenue
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+    JOIN order_items oi
+        ON o.order_id = oi.order_id
+    JOIN products p
+        ON oi.product_id = p.product_id
+    GROUP BY c.customer_id, c.customer_name
+),
+ranked AS (
+    SELECT customer_id,
+           customer_name,
+           revenue,
+           ROW_NUMBER() OVER (
+               ORDER BY revenue DESC
+           ) AS rn
+    FROM customer_revenue
+)
+SELECT customer_id,
+       customer_name,
+       revenue AS total_revenue,
+       rn
+FROM ranked
+WHERE rn <= 3;
+
+
+-- Q82. Find the top 3 distinct revenue levels using DENSE_RANK()
+WITH customer_revenue AS (
+    SELECT c.customer_id,
+           c.customer_name,
+           SUM(p.price * oi.quantity) AS revenue
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+    JOIN order_items oi
+        ON o.order_id = oi.order_id
+    JOIN products p
+        ON oi.product_id = p.product_id
+    GROUP BY c.customer_id, c.customer_name
+),
+ranked AS (
+    SELECT customer_id,
+           customer_name,
+           revenue,
+           DENSE_RANK() OVER (
+               ORDER BY revenue DESC
+           ) AS rnk
+    FROM customer_revenue
+)
+SELECT customer_id,
+       customer_name,
+       revenue AS total_revenue,
+       rnk
+FROM ranked
+WHERE rnk <= 3;
+
+
+-- Q83. Find the top customer in each category, including ties
+WITH category_customer_revenue AS (
+    SELECT ca.category_id,
+           ca.category_name,
+           c.customer_id,
+           c.customer_name,
+           SUM(p.price * oi.quantity) AS revenue
+    FROM categories ca
+    JOIN products p
+        ON ca.category_id = p.category_id
+    JOIN order_items oi
+        ON p.product_id = oi.product_id
+    JOIN orders o
+        ON oi.order_id = o.order_id
+    JOIN customers c
+        ON o.customer_id = c.customer_id
+    GROUP BY ca.category_id,
+             ca.category_name,
+             c.customer_id,
+             c.customer_name
+),
+ranked AS (
+    SELECT category_name,
+           customer_id,
+           customer_name,
+           revenue,
+           RANK() OVER (
+               PARTITION BY category_id
+               ORDER BY revenue DESC
+           ) AS rnk
+    FROM category_customer_revenue
+)
+SELECT category_name,
+       customer_id,
+       customer_name,
+       revenue
+FROM ranked
+WHERE rnk = 1;
+
+
+-- Q84. Calculate running revenue for each customer
+WITH order_revenue AS (
+    SELECT c.customer_id,
+           o.order_date,
+           o.order_id,
+           SUM(p.price * oi.quantity) AS revenue
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+    JOIN order_items oi
+        ON o.order_id = oi.order_id
+    JOIN products p
+        ON oi.product_id = p.product_id
+    GROUP BY c.customer_id,
+             o.order_date,
+             o.order_id
+)
+SELECT customer_id,
+       order_date,
+       order_id,
+       revenue,
+       SUM(revenue) OVER (
+           PARTITION BY customer_id
+           ORDER BY order_date
+       ) AS running_revenue
+FROM order_revenue;
+
+
+-- Q85. Find the previous order revenue for each customer
+WITH order_revenue AS (
+    SELECT c.customer_id,
+           o.order_date,
+           o.order_id,
+           SUM(p.price * oi.quantity) AS revenue
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+    JOIN order_items oi
+        ON o.order_id = oi.order_id
+    JOIN products p
+        ON oi.product_id = p.product_id
+    GROUP BY c.customer_id,
+             o.order_date,
+             o.order_id
+)
+SELECT customer_id,
+       order_date,
+       order_id,
+       revenue,
+       LAG(revenue) OVER (
+           PARTITION BY customer_id
+           ORDER BY order_date
+       ) AS previous_order_revenue
+FROM order_revenue;
+
+
+-- Q86. Find the difference between current and previous order revenue
+WITH order_revenue AS (
+    SELECT c.customer_id,
+           o.order_date,
+           o.order_id,
+           SUM(p.price * oi.quantity) AS revenue
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+    JOIN order_items oi
+        ON o.order_id = oi.order_id
+    JOIN products p
+        ON oi.product_id = p.product_id
+    GROUP BY c.customer_id,
+             o.order_date,
+             o.order_id
+),
+previous_orders AS (
+    SELECT customer_id,
+           order_date,
+           order_id,
+           revenue,
+           LAG(revenue) OVER (
+               PARTITION BY customer_id
+               ORDER BY order_date
+           ) AS previous_order_revenue
+    FROM order_revenue
+)
+SELECT customer_id,
+       order_date,
+       order_id,
+       revenue,
+       previous_order_revenue,
+       revenue - previous_order_revenue AS revenue_difference
+FROM previous_orders;
+
+
+-- Q87. Find the next order date for each customer
+WITH customer_orders AS (
+    SELECT c.customer_id,
+           o.order_id,
+           o.order_date
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+)
+SELECT customer_id,
+       order_id,
+       order_date,
+       LEAD(order_date) OVER (
+           PARTITION BY customer_id
+           ORDER BY order_date
+       ) AS next_order_date
+FROM customer_orders;
+
+
+-- Q88. Find the number of days between consecutive orders
+WITH customer_orders AS (
+    SELECT c.customer_id,
+           o.order_id,
+           o.order_date
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+),
+previous_orders AS (
+    SELECT customer_id,
+           order_id,
+           order_date,
+           LAG(order_date) OVER (
+               PARTITION BY customer_id
+               ORDER BY order_date
+           ) AS previous_order_date
+    FROM customer_orders
+)
+SELECT customer_id,
+       order_id,
+       order_date,
+       previous_order_date,
+       order_date - previous_order_date AS days_between_orders
+FROM previous_orders;
+
+
+-- Q89. Number each customer's orders chronologically
+WITH customer_orders AS (
+    SELECT c.customer_id,
+           o.order_id,
+           o.order_date
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+)
+SELECT customer_id,
+       order_id,
+       order_date,
+       ROW_NUMBER() OVER (
+           PARTITION BY customer_id
+           ORDER BY order_date
+       ) AS order_number
+FROM customer_orders;
+
+
+-- Q90. Find the first order of each customer
+WITH customer_orders AS (
+    SELECT c.customer_id,
+           o.order_id,
+           o.order_date
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+),
+ranked AS (
+    SELECT customer_id,
+           order_id,
+           order_date,
+           RANK() OVER (
+               PARTITION BY customer_id
+               ORDER BY order_date
+           ) AS rnk
+    FROM customer_orders
+)
+SELECT customer_id,
+       order_id,
+       order_date
+FROM ranked
+WHERE rnk = 1;
+
+
+-- Q91. Calculate revenue change percentage between orders
+WITH order_revenue AS (
+    SELECT c.customer_id,
+           o.order_date,
+           o.order_id,
+           SUM(p.price * oi.quantity) AS revenue
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+    JOIN order_items oi
+        ON o.order_id = oi.order_id
+    JOIN products p
+        ON oi.product_id = p.product_id
+    GROUP BY c.customer_id,
+             o.order_date,
+             o.order_id
+),
+previous_orders AS (
+    SELECT customer_id,
+           order_date,
+           order_id,
+           revenue,
+           LAG(revenue) OVER (
+               PARTITION BY customer_id
+               ORDER BY order_date
+           ) AS previous_revenue
+    FROM order_revenue
+)
+SELECT customer_id,
+       order_date,
+       order_id,
+       revenue,
+       previous_revenue,
+       ((revenue - previous_revenue)
+        / previous_revenue) * 100 AS revenue_change_percentage
+FROM previous_orders
+WHERE previous_revenue IS NOT NULL;
+
+
+-- Q92. Find each category's percentage contribution to total revenue
+WITH category_revenue AS (
+    SELECT ca.category_name,
+           SUM(p.price * oi.quantity) AS revenue
+    FROM categories ca
+    JOIN products p
+        ON ca.category_id = p.category_id
+    JOIN order_items oi
+        ON p.product_id = oi.product_id
+    GROUP BY ca.category_name
+)
+SELECT category_name,
+       revenue AS category_revenue,
+       SUM(revenue) OVER () AS total_revenue,
+       (revenue / SUM(revenue) OVER ()) * 100
+           AS percentage_of_total_revenue
+FROM category_revenue;
+
+
+-- Q93. Rank categories based on total revenue
+WITH category_revenue AS (
+    SELECT ca.category_name,
+           SUM(p.price * oi.quantity) AS revenue
+    FROM categories ca
+    JOIN products p
+        ON ca.category_id = p.category_id
+    JOIN order_items oi
+        ON p.product_id = oi.product_id
+    GROUP BY ca.category_name
+)
+SELECT category_name,
+       revenue,
+       RANK() OVER (
+           ORDER BY revenue DESC
+       ) AS revenue_rank
+FROM category_revenue;
+
+
+-- Q94. Find the highest revenue category
+WITH category_revenue AS (
+    SELECT ca.category_name,
+           SUM(p.price * oi.quantity) AS revenue
+    FROM categories ca
+    JOIN products p
+        ON ca.category_id = p.category_id
+    JOIN order_items oi
+        ON p.product_id = oi.product_id
+    GROUP BY ca.category_name
+),
+ranked AS (
+    SELECT category_name,
+           revenue,
+           RANK() OVER (
+               ORDER BY revenue DESC
+           ) AS revenue_rank
+    FROM category_revenue
+)
+SELECT category_name,
+       revenue
+FROM ranked
+WHERE revenue_rank = 1;
+
+
+-- Q95. Find the second highest revenue category
+WITH category_revenue AS (
+    SELECT ca.category_name,
+           SUM(p.price * oi.quantity) AS revenue
+    FROM categories ca
+    JOIN products p
+        ON ca.category_id = p.category_id
+    JOIN order_items oi
+        ON p.product_id = oi.product_id
+    GROUP BY ca.category_name
+),
+ranked AS (
+    SELECT category_name,
+           revenue,
+           DENSE_RANK() OVER (
+               ORDER BY revenue DESC
+           ) AS revenue_rank
+    FROM category_revenue
+)
+SELECT category_name,
+       revenue
+FROM ranked
+WHERE revenue_rank = 2;
+
+
+-- Q96. Find customers who placed more than one order
+WITH customer_orders AS (
+    SELECT c.customer_id,
+           c.customer_name,
+           COUNT(o.order_id) AS total_orders,
+           SUM(p.price * oi.quantity) AS total_revenue
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+    JOIN order_items oi
+        ON o.order_id = oi.order_id
+    JOIN products p
+        ON oi.product_id = p.product_id
+    GROUP BY c.customer_id,
+             c.customer_name
+)
+SELECT customer_id,
+       customer_name,
+       total_orders,
+       total_revenue
+FROM customer_orders
+WHERE total_orders > 1;
+
+
+-- Q97. Find the top 3 customers based on completed-order revenue
+WITH customer_revenue AS (
+    SELECT c.customer_id,
+           c.customer_name,
+           SUM(p.price * oi.quantity) AS total_revenue
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+    JOIN order_items oi
+        ON o.order_id = oi.order_id
+    JOIN products p
+        ON oi.product_id = p.product_id
+    WHERE o.status = 'Completed'
+    GROUP BY c.customer_id,
+             c.customer_name
+),
+ranked AS (
+    SELECT customer_id,
+           customer_name,
+           total_revenue,
+           RANK() OVER (
+               ORDER BY total_revenue DESC
+           ) AS rnk
+    FROM customer_revenue
+)
+SELECT customer_id,
+       customer_name,
+       total_revenue
+FROM ranked
+WHERE rnk <= 3;
+
+
+-- Q98. Find the top-selling product in each category
+WITH product_quantity AS (
+    SELECT ca.category_name,
+           ca.category_id,
+           p.product_name,
+           SUM(oi.quantity) AS total_quantity
+    FROM categories ca
+    JOIN products p
+        ON ca.category_id = p.category_id
+    JOIN order_items oi
+        ON p.product_id = oi.product_id
+    GROUP BY ca.category_name,
+             ca.category_id,
+             p.product_name
+),
+ranked AS (
+    SELECT category_name,
+           product_name,
+           total_quantity,
+           RANK() OVER (
+               PARTITION BY category_id
+               ORDER BY total_quantity DESC
+           ) AS rnk
+    FROM product_quantity
+)
+SELECT category_name,
+       product_name,
+       total_quantity
+FROM ranked
+WHERE rnk = 1;
+
+
+-- Q99. Find the most recent order of each customer
+WITH customer_orders AS (
+    SELECT c.customer_id,
+           c.customer_name,
+           o.order_id,
+           o.order_date
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+),
+ranked AS (
+    SELECT customer_id,
+           customer_name,
+           order_id,
+           order_date,
+           RANK() OVER (
+               PARTITION BY customer_id
+               ORDER BY order_date DESC
+           ) AS rnk
+    FROM customer_orders
+)
+SELECT customer_id,
+       customer_name,
+       order_id,
+       order_date
+FROM ranked
+WHERE rnk = 1;
+
+
+-- Q100. Find customers whose completed-order revenue
+-- is above the average completed-order customer revenue
+WITH customer_revenue AS (
+    SELECT c.customer_id,
+           c.customer_name,
+           SUM(p.price * oi.quantity) AS total_revenue
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+    JOIN order_items oi
+        ON o.order_id = oi.order_id
+    JOIN products p
+        ON oi.product_id = p.product_id
+    WHERE o.status = 'Completed'
+    GROUP BY c.customer_id,
+             c.customer_name
+),
+revenue_with_average AS (
+    SELECT customer_id,
+           customer_name,
+           total_revenue,
+           AVG(total_revenue) OVER () AS avg_revenue
+    FROM customer_revenue
+)
+SELECT customer_id,
+       customer_name,
+       total_revenue
+FROM revenue_with_average
+WHERE total_revenue > avg_revenue;
