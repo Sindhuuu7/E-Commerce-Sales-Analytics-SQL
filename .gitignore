@@ -1,0 +1,7 @@
+# Oracle / SQL Developer
+*.log
+*.tmp
+
+# Operating system files
+.DS_Store
+Thumbs.db
