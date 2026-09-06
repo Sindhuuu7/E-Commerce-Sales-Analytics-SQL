@@ -61,15 +61,104 @@ Stores the products included in each order.
 - product_id
 - quantity
 
-### Table Relationships
+## 🔗 Table Relationships
+
+The tables are connected using primary keys and foreign keys.
 
 ```text
 Customers
-    ↓
+    ↓ customer_id
 Orders
-    ↓
+    ↓ order_id
 Order Items
-    ↓
+    ↓ product_id
 Products
-    ↓
+    ↓ category_id
 Categories
+
+
+---
+
+## 🛠️ Tools & Technologies
+
+- Database: Oracle SQL
+- Query Language: SQL
+- Development Environment: Oracle SQL Developer
+- Version Control: GitHub
+
+---
+
+## 📚 SQL Concepts Used
+
+The project covers the following SQL concepts:
+
+- SELECT
+- WHERE
+- ORDER BY
+- GROUP BY
+- HAVING
+- Aggregate Functions
+- INNER JOIN
+- LEFT JOIN
+- Subqueries
+- Correlated Subqueries
+- Common Table Expressions (CTEs)
+- CASE WHEN
+- Conditional Aggregation
+- RANK()
+- DENSE_RANK()
+- ROW_NUMBER()
+- LAG()
+- LEAD()
+- Running Totals
+- Date-based Analysis
+- Revenue Analysis
+- Customer Analysis
+- Product Analysis
+- Category Analysis
+
+---
+
+## 📊 Business Questions
+
+The project uses SQL to answer practical business questions such as:
+
+- Who are the highest-value customers?
+- Which products generate the most revenue?
+- Which products have the highest sales quantity?
+- Which category generates the highest revenue?
+- Which customers have placed multiple orders?
+- What is the average order value?
+- Which customers have never placed an order?
+- What percentage of total revenue comes from each category?
+- How are customers ranked based on their revenue?
+- How does a customer's revenue change between consecutive orders?
+- What is the first order of each customer?
+- What is the most recent order of each customer?
+
+---
+
+## 💡 Key Insights
+
+The analysis provides several useful business insights:
+
+- High-value customers contribute a significant portion of total revenue.
+- Electronics generates strong revenue because it contains higher-priced products.
+- Customer performance can be compared using ranking functions.
+- Window functions help analyze customer order history and revenue trends.
+- Category-level analysis helps identify the strongest-performing categories.
+- Order-level analysis helps understand customer purchasing behavior.
+
+---
+
+## 📁 Project Structure
+
+```text
+E-Commerce-Sales-Analytics-SQL/
+│
+├── README.md
+├── schema.sql
+├── data.sql
+├── queries.sql
+│
+└── screenshots/
