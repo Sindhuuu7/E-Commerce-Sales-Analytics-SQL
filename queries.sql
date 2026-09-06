@@ -490,3 +490,340 @@ GROUP BY c.customer_id,
          c.customer_name
 ORDER BY total_orders DESC
 FETCH FIRST 1 ROW ONLY;
+
+-- ============================================
+-- ADVANCED JOINS & SUBQUERIES
+-- Q51 - Q75
+-- ============================================
+
+-- Q51. Find customers whose total revenue is greater than
+-- the average customer revenue
+SELECT c.customer_id,
+       c.customer_name,
+       SUM(p.price * oi.quantity) AS total_revenue
+FROM customers c
+JOIN orders o
+    ON c.customer_id = o.customer_id
+JOIN order_items oi
+    ON o.order_id = oi.order_id
+JOIN products p
+    ON oi.product_id = p.product_id
+GROUP BY c.customer_id, c.customer_name
+HAVING SUM(p.price * oi.quantity) > (
+    SELECT AVG(total_revenue)
+    FROM (
+        SELECT SUM(p2.price * oi2.quantity) AS total_revenue
+        FROM customers c2
+        JOIN orders o2
+            ON c2.customer_id = o2.customer_id
+        JOIN order_items oi2
+            ON o2.order_id = oi2.order_id
+        JOIN products p2
+            ON oi2.product_id = p2.product_id
+        GROUP BY c2.customer_id
+    )
+);
+
+
+-- Q52. Find the product with the highest total quantity sold
+SELECT p.product_id,
+       p.product_name,
+       SUM(oi.quantity) AS total_quantity
+FROM products p
+JOIN order_items oi
+    ON p.product_id = oi.product_id
+GROUP BY p.product_id, p.product_name
+ORDER BY total_quantity DESC
+FETCH FIRST 1 ROW ONLY;
+
+
+-- Q53. Find the category with the highest total revenue
+SELECT c.category_name,
+       SUM(p.price * oi.quantity) AS total_revenue
+FROM categories c
+JOIN products p
+    ON c.category_id = p.category_id
+JOIN order_items oi
+    ON p.product_id = oi.product_id
+GROUP BY c.category_name
+ORDER BY total_revenue DESC
+FETCH FIRST 1 ROW ONLY;
+
+
+-- Q54. Find customers who purchased a Laptop
+SELECT DISTINCT c.customer_id,
+       c.customer_name
+FROM customers c
+JOIN orders o
+    ON c.customer_id = o.customer_id
+JOIN order_items oi
+    ON o.order_id = oi.order_id
+JOIN products p
+    ON oi.product_id = p.product_id
+WHERE p.product_name = 'Laptop';
+
+
+-- Q55. Find customers who purchased products from Electronics
+SELECT DISTINCT c.customer_id,
+       c.customer_name
+FROM customers c
+JOIN orders o
+    ON c.customer_id = o.customer_id
+JOIN order_items oi
+    ON o.order_id = oi.order_id
+JOIN products p
+    ON oi.product_id = p.product_id
+JOIN categories ca
+    ON p.category_id = ca.category_id
+WHERE ca.category_name = 'Electronics';
+
+
+-- Q56. Find the total number of products purchased by each customer
+SELECT c.customer_id,
+       c.customer_name,
+       SUM(oi.quantity) AS total_products
+FROM customers c
+JOIN orders o
+    ON c.customer_id = o.customer_id
+JOIN order_items oi
+    ON o.order_id = oi.order_id
+GROUP BY c.customer_id, c.customer_name;
+
+
+-- Q57. Find the customer who purchased the highest quantity of products
+SELECT c.customer_id,
+       c.customer_name,
+       SUM(oi.quantity) AS total_quantity
+FROM customers c
+JOIN orders o
+    ON c.customer_id = o.customer_id
+JOIN order_items oi
+    ON o.order_id = oi.order_id
+GROUP BY c.customer_id, c.customer_name
+ORDER BY total_quantity DESC
+FETCH FIRST 1 ROW ONLY;
+
+
+-- Q58. Find the number of different products purchased by each customer
+SELECT c.customer_id,
+       c.customer_name,
+       COUNT(DISTINCT oi.product_id) AS different_products
+FROM customers c
+JOIN orders o
+    ON c.customer_id = o.customer_id
+JOIN order_items oi
+    ON o.order_id = oi.order_id
+GROUP BY c.customer_id, c.customer_name;
+
+
+-- Q59. Find customers who purchased more than one different product
+SELECT c.customer_id,
+       c.customer_name,
+       COUNT(DISTINCT oi.product_id) AS different_products
+FROM customers c
+JOIN orders o
+    ON c.customer_id = o.customer_id
+JOIN order_items oi
+    ON o.order_id = oi.order_id
+GROUP BY c.customer_id, c.customer_name
+HAVING COUNT(DISTINCT oi.product_id) > 1;
+
+
+-- Q60. Find the total revenue generated in each month
+SELECT EXTRACT(MONTH FROM o.order_date) AS order_month,
+       SUM(p.price * oi.quantity) AS monthly_revenue
+FROM orders o
+JOIN order_items oi
+    ON o.order_id = oi.order_id
+JOIN products p
+    ON oi.product_id = p.product_id
+GROUP BY EXTRACT(MONTH FROM o.order_date)
+ORDER BY order_month;
+
+
+-- Q61. Find the number of orders placed in each month
+SELECT EXTRACT(MONTH FROM order_date) AS order_month,
+       COUNT(*) AS total_orders
+FROM orders
+GROUP BY EXTRACT(MONTH FROM order_date)
+ORDER BY order_month;
+
+
+-- Q62. Find the customer with the highest number of completed orders
+SELECT c.customer_id,
+       c.customer_name,
+       COUNT(o.order_id) AS completed_orders
+FROM customers c
+JOIN orders o
+    ON c.customer_id = o.customer_id
+WHERE o.status = 'Completed'
+GROUP BY c.customer_id, c.customer_name
+ORDER BY completed_orders DESC
+FETCH FIRST 1 ROW ONLY;
+
+
+-- Q63. Find the total revenue from completed orders
+SELECT SUM(p.price * oi.quantity) AS completed_revenue
+FROM orders o
+JOIN order_items oi
+    ON o.order_id = oi.order_id
+JOIN products p
+    ON oi.product_id = p.product_id
+WHERE o.status = 'Completed';
+
+
+-- Q64. Find the total revenue from shipped orders
+SELECT SUM(p.price * oi.quantity) AS shipped_revenue
+FROM orders o
+JOIN order_items oi
+    ON o.order_id = oi.order_id
+JOIN products p
+    ON oi.product_id = p.product_id
+WHERE o.status = 'Shipped';
+
+
+-- Q65. Find customers who have both Completed and Shipped orders
+SELECT c.customer_id,
+       c.customer_name
+FROM customers c
+JOIN orders o
+    ON c.customer_id = o.customer_id
+GROUP BY c.customer_id, c.customer_name
+HAVING COUNT(CASE WHEN o.status = 'Completed' THEN 1 END) > 0
+   AND COUNT(CASE WHEN o.status = 'Shipped' THEN 1 END) > 0;
+
+
+-- Q66. Find the product with the highest revenue
+SELECT p.product_id,
+       p.product_name,
+       SUM(p.price * oi.quantity) AS total_revenue
+FROM products p
+JOIN order_items oi
+    ON p.product_id = oi.product_id
+GROUP BY p.product_id, p.product_name
+ORDER BY total_revenue DESC
+FETCH FIRST 1 ROW ONLY;
+
+
+-- Q67. Find products that generated revenue greater than 10000
+SELECT p.product_id,
+       p.product_name,
+       SUM(p.price * oi.quantity) AS total_revenue
+FROM products p
+JOIN order_items oi
+    ON p.product_id = oi.product_id
+GROUP BY p.product_id, p.product_name
+HAVING SUM(p.price * oi.quantity) > 10000;
+
+
+-- Q68. Find the average revenue per customer
+SELECT AVG(total_revenue) AS average_customer_revenue
+FROM (
+    SELECT c.customer_id,
+           SUM(p.price * oi.quantity) AS total_revenue
+    FROM customers c
+    JOIN orders o
+        ON c.customer_id = o.customer_id
+    JOIN order_items oi
+        ON o.order_id = oi.order_id
+    JOIN products p
+        ON oi.product_id = p.product_id
+    GROUP BY c.customer_id
+);
+
+
+-- Q69. Find customers whose order count is above the average order count
+SELECT c.customer_id,
+       c.customer_name,
+       COUNT(o.order_id) AS total_orders
+FROM customers c
+JOIN orders o
+    ON c.customer_id = o.customer_id
+GROUP BY c.customer_id, c.customer_name
+HAVING COUNT(o.order_id) > (
+    SELECT AVG(order_count)
+    FROM (
+        SELECT COUNT(*) AS order_count
+        FROM orders
+        GROUP BY customer_id
+    )
+);
+
+
+-- Q70. Find the latest order date for each customer
+SELECT c.customer_id,
+       c.customer_name,
+       MAX(o.order_date) AS latest_order_date
+FROM customers c
+JOIN orders o
+    ON c.customer_id = o.customer_id
+GROUP BY c.customer_id, c.customer_name;
+
+
+-- Q71. Find the first order date for each customer
+SELECT c.customer_id,
+       c.customer_name,
+       MIN(o.order_date) AS first_order_date
+FROM customers c
+JOIN orders o
+    ON c.customer_id = o.customer_id
+GROUP BY c.customer_id, c.customer_name;
+
+
+-- Q72. Find customers whose latest order was placed after
+-- March 1, 2026
+SELECT c.customer_id,
+       c.customer_name,
+       MAX(o.order_date) AS latest_order_date
+FROM customers c
+JOIN orders o
+    ON c.customer_id = o.customer_id
+GROUP BY c.customer_id, c.customer_name
+HAVING MAX(o.order_date) > DATE '2026-03-01';
+
+
+-- Q73. Find the most expensive product in each category
+SELECT c.category_name,
+       p.product_name,
+       p.price
+FROM categories c
+JOIN products p
+    ON c.category_id = p.category_id
+WHERE p.price = (
+    SELECT MAX(p2.price)
+    FROM products p2
+    WHERE p2.category_id = p.category_id
+);
+
+
+-- Q74. Find customers who purchased the most expensive product
+SELECT DISTINCT c.customer_id,
+       c.customer_name
+FROM customers c
+JOIN orders o
+    ON c.customer_id = o.customer_id
+JOIN order_items oi
+    ON o.order_id = oi.order_id
+JOIN products p
+    ON oi.product_id = p.product_id
+WHERE p.price = (
+    SELECT MAX(price)
+    FROM products
+);
+
+
+-- Q75. Find the customer with the highest total revenue
+SELECT c.customer_id,
+       c.customer_name,
+       SUM(p.price * oi.quantity) AS total_revenue,
+       COUNT(DISTINCT o.order_id) AS total_orders
+FROM customers c
+JOIN orders o
+    ON c.customer_id = o.customer_id
+JOIN order_items oi
+    ON o.order_id = oi.order_id
+JOIN products p
+    ON oi.product_id = p.product_id
+GROUP BY c.customer_id, c.customer_name
+ORDER BY total_revenue DESC
+FETCH FIRST 1 ROW ONLY;
